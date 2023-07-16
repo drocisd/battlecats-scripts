@@ -2,7 +2,7 @@
 // Parser variable should set to "const pegjs"
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_precedence
 {
-  const known_identifiers = ["id", "trait", "imu", "hp", "atk", "range", "dps", "kb", "attackf", "cd", "atktype", "rarity", "tdps", "thp"];
+  const known_identifiers = ["id", "trait", "imu", "hp", "atk", "attack", "range", "dps", "kb", "attackf", "attackf", "cd", "atktype", "rarity", "tdps", "thp", "tatk", "speed", "price", "cost"];
 }
 Expression
   = head:Term1 tail:(("&&" / "||") Term1)* {
@@ -41,7 +41,7 @@ Term5
       }, head);
     }
 Factor
-  = _ "(" expr:Expression _ ")" { return expr; }
+  = _ "(" expr:Expression _ ")" { return '(' + expr + ')'; }
   / _ prim:Prim _ { return prim; }
 
 Prim
