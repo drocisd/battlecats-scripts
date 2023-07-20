@@ -1,4 +1,4 @@
-def imgcut(filename = '0/org/page/img015.imgcut'):
+def imgcut(filename = './org/page/img015.imgcut'):
     lines = open(filename).readlines()[2::]
     name = lines[0]
     n = int(lines[1])
@@ -30,7 +30,12 @@ def css(name, l=None):
   background-position: ''' + str(x) +  '''px ''' + str(y) + '''px;
 }\n'''
     )
-
+sys.stdout.write('''\
+.bc-icon {
+    display: inline-block;
+    background-image: url(/data/page/img015.png);  
+    vertical-align: bottom;
+}\n''')
 imgs = imgcut()
 css('trait-red', 77)
 css('trait-float')
@@ -89,4 +94,24 @@ css('ckill', 300)
 css('shield-break', 296)
 css('ekill', 110)
 css('massives', 114)
+css('res-weak', 42)
+css('res-freeze', 44)
+css('res-slow', 46)
+css('res-kb', 48)
+css('res-wave', 50)
+css('res-warp', 52)
+css('res-curse', 108)
+css('res-toxic', 234)
+css('res-surge', 240)
+css('res-weak2', 43)
+css('res-freeze2', 45)
+css('res-slow2', 47)
+css('res-kb2', 49)
+css('res-wave2', 51)
+css('res-warp2', 53)
+css('res-curse2', 109)
+css('res-toxic2', 235)
+css('res-surge2', 241)
+
+
 
