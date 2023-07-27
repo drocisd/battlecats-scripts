@@ -112,6 +112,6 @@ css('res-warp2', 53)
 css('res-curse2', 109)
 css('res-toxic2', 235)
 css('res-surge2', 241)
-
+css('toxic', 233)
 
 

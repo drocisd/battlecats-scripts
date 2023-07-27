@@ -2,7 +2,8 @@
 // Parser variable should set to "const pegjs"
 // https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Operators/Operator_precedence
 {
-  const known_identifiers = new Set(["id", "trait", "imu", "hp", "atk", "attack", "range", "dps", "kb", "attackf", "attacks", "cd", "atktype", "rarity", "tdps", "thp", "tatk", "speed", "price", "cost", "revenge", "tba", "backswing", "pre", "pre1", "pre2"]);}
+  const known_identifiers = new Set(["id", "trait", "imu", "hp", "atk", "attack", "range", "dps", "kb", "attackf", "attacks", "cd", "atktype", "rarity", "tdps", "thp", "tatk", "speed", "price", "cost", "revenge", "tba", "backswing", "pre", "pre1", "pre2"]);
+}
 Expression
   = head:Term1 tail:(("&&" / "||") Term1)* {
       return tail.reduce(function(result, element) {
@@ -46,16 +47,18 @@ Factor
 Prim
   = '!' _ prim:Prim { return '(!' + prim + ')'; }
   / Integer 
-  / id:Identifier _ ('(' args:ArgList ')')?  { 
-    var s = text(); 
-    const i = s.indexOf('(');
-    if (i != -1) {
-      let f = s.slice(0, i);
-      if (f == 'hasab' || f == 'hasres')
-        return 'form.' + s;
-      if (!Math[f])
-        throw Error("未知的函數: " + f);
-      return 'Math.' + s;
+  / id:Identifier _ args:('(' ArgList ')')? { 
+    var s = id;
+    if (args) {
+      switch (s) {
+      case 'hasab':
+      case 'hasres':
+      case 'dpsagainst':
+        return `form.${s}(${args[1]})`;
+      }
+      if (!Math[s])
+        throw Error("未知的函數: " + s);
+      return `Math.${s}(${args[1]})`;
     }
     const val = constants[s];
     if (val != undefined)
@@ -65,10 +68,12 @@ Prim
       throw new Error('未知的變數: ' + s);
     return 'form.get' + s + '()';
   }
-
-ArgList =
-  Expression (',' Expression)*
-
+ArgList = head:Expression? tail:(',' Expression)* {
+      if (!head) return '';
+      return tail.reduce(function(result, element) {
+        return result + ',' + element[1];
+      }, head);
+     }
 Integer "integer"
   = [0-9]+ { return text(); }
 
