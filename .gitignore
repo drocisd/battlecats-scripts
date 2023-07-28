@@ -2,4 +2,6 @@ node_modules
 __pycache__
 org
 gacha
-
+./*.txt
+stages
+stages.zip

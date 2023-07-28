@@ -1,16 +1,21 @@
 import os
 import sys
 import re
+import json
+
+def getFile(filename):
+    return open(filename, encoding='utf-8-sig')
 
 def readCSV(filename):
     if type(filename) is str:
-        filename = open(filename)
+        filename = getFile(filename)
     for line in filename:
         x = line.split('//')[0].rstrip()
         if len(x):
             if x[-1] == ',':
                 x = x[:-1]
             yield x.split(',')
+    filename.close()
 
 idmap = {
         "E": 4,
@@ -34,9 +39,12 @@ idmap = {
 
 MapColcs = {}
 pattern = re.compile('\\d+')
-
+CH_CASTLES = [45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28,
+            27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 46,
+            47, 45, 47, 47, 45, 45]
 class Stage:
     def __init__(self, id, stm, file, type):
+        self.name = ''
         f = readCSV(file)
         self.id = id
         self.maxMaterial = 0
@@ -48,8 +56,71 @@ class Stage:
         if type == 0:
             line = next(f)
             self.setData(line)
+            self.castle = int(line[0])
+            if self.castle == -1:
+                self.castle = CH_CASTLES[id]
+            if stm.cast != -1:
+                self.castle += stm.cast * 1000
+                self.non_con = line[1] == '1'
+        else:
+            self.castle = stm.cast * 1000 + CH_CASTLES[id]
+            self.non_con = False
+        line = next(f)
+        self.len = int(line[0])
+        self.health = int(line[1])
+        self.minSpawn = int(line[2])
+        self.maxSpawn = int(line[3])
+        self.bg = int(line[4])
+        self.max = min(50, int(line[5]))
+        ano = int(line[6])
+        self.timeLimit = max(int(line[7]), 0) if len(line) >= 8 else 0
+        if self.timeLimit:
+            self.health = 2147483647
+        self.trail = self.timeLimit != 0
+        isBase = int(line[6]) - 2
+        ll = []
+        intl = 9 if type == 2 else 10
+        for line in f:
+            if not line[0].isdigit() or line[0] == '0':
+                break
+            data = [0] * 15
+            for i in range(intl):
+                if i >= len(line):
+                    data[i] = (100)
+                else:
+                    data[i] = int(line[i])
+            data[0] -= 2
+            data[2] *= 2
+            data[3] *= 2
+            data[4] *= 2
+            if not self.timeLimit and intl > 9 and data[5] > 100 and data[9] == 100:
+                data[9] = data[5]
+                data[5] = 100
+            if len(line) > 11 and line[11].isdigit():
+                data[13] = int(line[11])
+                if not data[13]:
+                    data[13] = data[9]
+            else:
+                data[13] = data[9]
+            if len(line) > 12 and line[12].isdigit() and int(line[12] == 1):
+                data[2] = -data[2]
+            if len(line) > 13 and line[13].isdigit():
+                data[13] = int(line[13])
+            if data[0] == isBase:
+                data[5] = 0
+            ll.append(data)
+        self.lines = ll
+
     def __repr__(self):
-        return '<stage>'
+        return '<%s>' % self.name
+
+    def toJSON(self, f):
+        x = {}
+        for k, v in vars(self).items():
+            if k != 'id':
+                x[k] = v
+        json.dump(x, f)
+
     def setData(self, strs):
         chance = int(strs[2])
         self.exConnection = chance != 0
@@ -95,11 +166,13 @@ class Stage:
             self.drop[0] = [data[5], data[6], data[7]]
 
 class StageMap:
-    def __init__(self, file, ID):
+    def __init__(self, file, ID, cast=-1):
+        self.name = ''
         self.id = ID
         self.materialDrop = []
         self.multiplier = []
         self.list = {}
+        self.cast = cast
         self.file = readCSV(file)
         line = next(self.file)
         if len(line) > 3:
@@ -109,11 +182,24 @@ class StageMap:
         self.waitTime = 0
         self.clearLimit = 0
         self.resetMode = 0
+        self.hiddenUponClear = False
+        self.starMask = 0
+        self.stars = []
         next(self.file)
+
+    def toJSON(self, f):
+        x = {}
+        for k, v in vars(self).items():
+            if k not in ('id', 'file', 'list'):
+                x[k] = v
+        json.dump(x, f)
+
     def __repr__(self):
-        return '<%d stages>' % len(self.list)
+        return '%s:<%d stages>' % (self.name, len(self.list))
+
     def getData(self, stage):
         stage.setInfo(next(self.file))
+
     def setDrop(self, line):
         for i in range(13, len(line)):
             self.materialDrop.append(int(line[i]))
@@ -123,27 +209,144 @@ class StageMap:
             stage.maxMaterial = int(line[5 + idx])
 
 class DefMapColc:
-    def __init__(self, st, ID, stages, maps):
-        self.name = st
-        self.id = ID
+    def __init__(self, ID = None, stages = None, maps = None):
+        self.name = ''
         self.maps = {}
+        if ID is None:
+            self.id = 3
+            MapColcs[3] = self
+            abbr = './org/stage/CH/stageNormal/stageNormal'
+            files = (
+                getFile(abbr + '0_0_Z.csv'),
+                getFile(abbr + '0_1_Z.csv'),
+                getFile(abbr + '0_2_Z.csv'),
+                getFile(abbr + '1_0.csv'),
+                getFile(abbr + '1_1.csv'),
+                getFile(abbr + '1_2.csv'),
+                getFile(abbr + '2_0.csv'),
+                getFile(abbr + '2_1.csv'),
+                getFile(abbr + '2_2.csv'),
+                getFile(abbr + '0.csv'),
+                getFile(abbr + '1_0_Z.csv'),
+                getFile(abbr + '2_2_Invasion.csv'),
+                getFile(abbr + '1_1_Z.csv'),
+                getFile(abbr + "1_2_Z.csv"),
+                getFile('./org/stage/DM/MSDDM/MapStageDataDM_000.csv'),
+                getFile(abbr + '2_0_Z.csv')
+            )
+            self.maps[0] = StageMap(files[0], 0, 1)#.name = 'Eoc 1 Zombie';
+            self.maps[1] = StageMap(files[1], 1, 1)#.name = 'Eoc 2 Zombie';
+            self.maps[2] = StageMap(files[2], 2, 1)#.name = 'Eoc 3 Zombie';
+            self.maps[3] = StageMap(files[3], 3, 2)#.name = 'ItF 1';
+            self.maps[4] = StageMap(files[4], 4, 2)#.name = 'ItF 2';
+            self.maps[5] = StageMap(files[5], 5, 2)#.name = 'ItF 3';
+            self.maps[6] = StageMap(files[6], 6, 3)#.name = 'CotC 1';
+            self.maps[7] = StageMap(files[7], 7, 3)#.name = 'CotC 2';
+            self.maps[8] = StageMap(files[8], 8, 3)#.name = 'CotC 3';
+            self.maps[9] = StageMap(files[9], 9, 2)#.name = "EoC 1-3";
+            self.maps[10] = StageMap(files[10], 10, 2)#.name = "ItF 1 Zombie";
+            self.maps[11] = StageMap(files[11], 11,2)#.name = "CotC 3 Invasion";
+            self.maps[12] = StageMap(files[12], 12, 2)#.name = 'ItF 2 Zombie';
+            self.maps[13] = StageMap(files[13], 13, 2)#.name = "ItF 3 Zombie";
+            self.maps[14] = StageMap(files[14], 14, 0)
+            self.maps[15] = StageMap(files[15], 15, 3)#"CotC 1 Zombie'))
+
+            for vf in os.listdir('./org/stage/CH/stageZ/'):
+                path = './org/stage/CH/stageZ/' + vf
+                ms = re.findall(pattern, vf)
+                if len(ms) != 2:
+                    continue
+                id0 = int(ms[0])
+                id1 = int(ms[1])
+                with getFile(path) as vf:
+                    if id0 < 3:
+                        m = self.maps[id0]
+                        m.list[id1] = Stage(id1, m, vf, 0)
+                    elif id0 == 4:
+                        m = self.maps[10]
+                        m.list[id1] = Stage(id1, m, vf, 0)
+                    elif id0 == 5:
+                        m = self.maps[12]
+                        m.list[id1] = Stage(id1, m, vf, 0)
+                    elif id0 == 6:
+                        m = self.maps[13]
+                        m.list[id1] = Stage(id1, m, vf, 0)
+                    elif id0 == 7:
+                        m = self.maps[15]
+                        m.list[id1] = Stage(id1, m, vf, 0)
+
+            for vf in os.listdir('./org/stage/CH/stageW/'):
+                path = './org/stage/CH/stageW/' + vf
+                ms = re.findall(pattern, vf)
+                if len(ms) != 2:
+                    continue
+                id0 = int(ms[0])
+                id1 = int(ms[1])
+                with getFile(path) as vf:
+                    m = self.maps[id0 - 1]
+                    m.list[id1] = Stage(id1, m, vf, 1)
+            
+            for vf in os.listdir('./org/stage/CH/stageSpace/'):
+                with getFile('./org/stage/CH/stageSpace/' + vf) as f:
+                    if len(vf) > 20:
+                        m = self.maps[11]
+                        m.list[0] = Stage(0, m, f, 0)
+                    else:
+                        ms = re.findall(pattern, vf)
+                        if len(ms) == 2:
+                            id0 = int(ms[0])
+                            id1 = int(ms[1])
+                            m = self.maps[id0 - 1]
+                            m.list[id1] = Stage(id1, m, f, 1)
+
+            for vf in os.listdir('./org/stage/CH/stage/'):
+                ms = re.findall(pattern, vf)
+                if len(ms) == 2:
+                    id0 = int(ms[0])
+                    id1 = int(ms[1])
+                    m = self.maps[9]
+                    with getFile('./org/stage/CH/stage/' + vf) as f:
+                        m.list[id1] = Stage(id1, m, f, 2)
+            self.maps[9].stars = [100, 150, 400]
+            for vf in os.listdir('./org/stage/DM/StageDM/'):
+                ms = re.findall(pattern, vf)
+                if len(ms) == 2:
+                    id0 = int(ms[0])
+                    id1 = int(ms[1])
+                    m = self.maps[14]
+                    with getFile('./org/stage/DM/StageDM/' + vf) as f:
+                        m.list[id1] = Stage(id1, m, f, 0)
+            for f in files:
+                f.close()
+            return
+        self.name = ''
+        self.id = ID
         MapColcs[ID] = self
         for m in maps:
             _id = int(m[1][-7:-4:])
-            with open('/'.join(m)) as f:
+            with getFile('/'.join(m)) as f:
                 self.maps[_id] = StageMap(f, _id)
         for s in stages:
             ms = re.findall(pattern, s[1])
             if len(ms) != 2:
                 continue
             stm = self.maps[int(ms[0])]
-            with open('/'.join(s)) as f:
+            with getFile('/'.join(s)) as f:
                 stm.list[int(ms[1])] = Stage(ms[1], stm, f, 0)
+
+    def toJSON(self, f):
+        x = {}
+        for k, v in vars(self).items():
+            if k != 'id' and k != 'maps':
+                x[k] = v
+        json.dump(x, f)
+
     def __repr__(self):
         L = []
         for i in sorted(self.maps.keys()):
             L.append(str(self.maps[i]))
-        return '{%s}' % ','.join(L)
+        return ','.join(L)
+
     @staticmethod
     def getMap(mid):
         if type(mid) is str:
@@ -152,6 +355,7 @@ class DefMapColc:
         if s:
             return s.maps.get(mid % 1000)
         return None
+
     @staticmethod
     def read():
         map_option = readCSV('./org/data/Map_option.csv') # 
@@ -171,21 +375,22 @@ class DefMapColc:
                 if "stageRN-1" in _list[i]:
                     continue
                 stage.extend(map(lambda x: ('./org/stage/' + fi + '/' + _list[i] + '/', x), os.listdir('./org/stage/' + fi + '/' + _list[i])))
-            DefMapColc(fi, idmap[fi], stage, map(lambda x: ('./org/stage/' + fi + '/' + _map + '/', x), os.listdir('./org/stage/' + fi + '/' + _map)))
+            DefMapColc(idmap[fi], stage, map(lambda x: ('./org/stage/' + fi + '/' + _map + '/', x), os.listdir('./org/stage/' + fi + '/' + _map)))
+        DefMapColc()
 
         next(map_option)
         for line in map_option:
             strs = line
-            _id = int(strs[0])
+            sm = DefMapColc.getMap(int(strs[0]))
+            if not sm: continue
             stars_len = int(strs[1])
-            stars = []
             for i in range(stars_len):
-                stars.append(int(strs[2 + i]))
-            starMask = int(strs[12])
-            resetMode = int(strs[13])
-            clearLimit = int(strs[8])
-            hiddenUponClear = strs[13] != '0'
-            waitTime = int(strs[10])
+                sm.stars.append(int(strs[2 + i]))
+            sm.starMask = int(strs[12])
+            sm.resetMode = int(strs[13])
+            sm.clearLimit = int(strs[8])
+            sm.hiddenUponClear = strs[13] != '0'
+            sm.waitTime = int(strs[10])
         exLottery = []
         for line in ex_lottery:
             if len(line) >= 2:
@@ -226,6 +431,60 @@ class DefMapColc:
                 m.setDrop(line)
 
 DefMapColc.read()
-for key, val in MapColcs.items():
-    print('===================================================================================================================== %d =====================================================================================================================' % key)
-    print(val, end='\n\n')
+
+def applyNames(file, lang):
+    for line in file:
+        strs = line.rstrip().split('\t')
+        if len(strs) == 1:
+            continue
+        idstr = strs[0].rstrip()
+        name = strs[-1].rstrip()
+        if not len(idstr) or not len(name):
+            continue
+        ids = idstr.split('-')
+        mc = MapColcs.get(int(ids[0]))
+        if not mc:
+            continue
+        if len(ids) == 1:
+            setattr(mc, lang, name)
+            continue
+        stm = mc.maps.get(int(ids[1]))
+        if stm:
+            if len(ids) == 2:
+                setattr(stm, lang, name)
+                continue
+            st = stm.list.get(int(ids[2]))
+            if st:
+                setattr(st, lang, name)
+
+with getFile('./zhStageName.txt') as zh:
+    applyNames(zh, 'name')
+with getFile('./jpStageName.txt') as jp:
+    applyNames(jp, 'jpname')
+
+try:
+    os.mkdir('./stages')
+except FileExistsError:
+    pass
+
+for k1, v1 in MapColcs.items():
+    d = './stages/' + str(k1)
+    try:
+        os.mkdir(d)
+    except FileExistsError:
+        pass
+    with open(d + '/' + 'info', 'w') as f:
+        v1.toJSON(f)
+    for k2, v2 in v1.maps.items():
+        D = d + '/' + str(k2)
+        try:
+            os.mkdir(D)
+        except FileExistsError:
+            pass
+        with open(D + '/' + 'info', 'w') as f:
+            v2.toJSON(f)
+        for k3, v3 in v2.list.items():
+            with open(D + '/' + str(k3), 'w') as f:
+                v3.toJSON(f)
+
+os.system('zip stages stages -r > /dev/null')
