@@ -3,19 +3,40 @@ import sys
 import re
 import json
 
+opened_fds = []
+
+_listdir = os.listdir
+os.listdir = lambda x: sorted(_listdir(x))
+
+print('1: Remove old files')
+
+os.system('rm stages.zip')
+os.system('rm -r stages')
+
 def getFile(filename):
     return open(filename, encoding='utf-8-sig')
 
-def readCSV(filename):
-    if type(filename) is str:
-        filename = getFile(filename)
-    for line in filename:
-        x = line.split('//')[0].rstrip()
+class readCSV:
+    def __init__(self, path):
+        if type(path) is str:
+            self.fd = open(path, encoding='utf-8-sig')
+        else:
+            self.fd = path
+    def __iter__(self):
+        return self
+    def __next__(self):
+        x = next(self.fd).split('//')[0].rstrip()
         if len(x):
-            if x[-1] == ',':
+            while len(x) and x[-1] == ',':
                 x = x[:-1]
-            yield x.split(',')
-    filename.close()
+            if len(x):
+                return x.split(',')
+        raise StopIteration()
+    def close(self):
+        self.fd.close()
+    @property
+    def name(self):
+        return self.fd.name
 
 idmap = {
         "E": 4,
@@ -44,15 +65,15 @@ CH_CASTLES = [45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29
             47, 45, 47, 47, 45, 45]
 class Stage:
     def __init__(self, id, stm, file, type):
+        stm.getData(self)
         self.name = ''
         f = readCSV(file)
         self.id = id
-        self.maxMaterial = 0
-        self.exConnection = False
-        self.exChance = 0
-        self.exMapID = -1
-        self.exStageIDMin = -1
-        self.exStageIDMax = -1
+        self.mM = 0 # maxMaterial
+        self.eC = 0
+        self.eI = -1
+        self.eM = -1
+        self.eA = -1
         if type == 0:
             line = next(f)
             self.setData(line)
@@ -61,22 +82,18 @@ class Stage:
                 self.castle = CH_CASTLES[id]
             if stm.cast != -1:
                 self.castle += stm.cast * 1000
-                self.non_con = line[1] == '1'
+            if line[1] == '1':
+                self.nC = 1
         else:
             self.castle = stm.cast * 1000 + CH_CASTLES[id]
-            self.non_con = False
         line = next(f)
         self.len = int(line[0])
-        self.health = int(line[1])
-        self.minSpawn = int(line[2])
-        self.maxSpawn = int(line[3])
+        self.H = int(line[1]) # health
+        self.iS = int(line[2]) # minSpawn
+        self.aS = int(line[3]) # maxSpawn
         self.bg = int(line[4])
         self.max = min(50, int(line[5]))
-        ano = int(line[6])
         self.timeLimit = max(int(line[7]), 0) if len(line) >= 8 else 0
-        if self.timeLimit:
-            self.health = 2147483647
-        self.trail = self.timeLimit != 0
         isBase = int(line[6]) - 2
         ll = []
         intl = 9 if type == 2 else 10
@@ -109,7 +126,7 @@ class Stage:
             if data[0] == isBase:
                 data[5] = 0
             ll.append(data)
-        self.lines = ll
+        self.l = ll
 
     def __repr__(self):
         return '<%s>' % self.name
@@ -119,23 +136,22 @@ class Stage:
         for k, v in vars(self).items():
             if k != 'id':
                 x[k] = v
-        json.dump(x, f)
+        json.dump(x, f, separators=(',', ':'), ensure_ascii=False)
 
     def setData(self, strs):
         chance = int(strs[2])
-        self.exConnection = chance != 0
-        self.exChance = chance
-        self.exMapID = int(strs[3])
-        self.exStageIDMin = int(strs[4])
-        self.exStageIDMax = int(strs[5])
+        self.eC = chance # exChance
+        self.eM = int(strs[3]) # exMapID
+        self.eI = int(strs[4]) # exStageIDMin
+        self.eA = int(strs[5]) # exStageIDMax
     def setInfo(self, data):
-        self.energy = int(data[0])
+        self.e = int(data[0]) # energy
         self.xp = int(data[1])
-        self.mus0 = int(data[2])
-        self.mush = int(data[3])
-        self.mus1 = int(data[4])
-        self.once = data[-1]
-        isTime = data.length > 15
+        self.m0 = int(data[2]) # mus0
+        # self.mush = int(data[3])
+        self.m1 = int(data[4]) # mus1
+        self.once = int(data[-1])
+        isTime = len(data) > 15
         if isTime:
             for i in range(8, 15):
                 if data[i] != '-2':
@@ -148,29 +164,31 @@ class Stage:
                 self.time.append([])
                 for j in range(3):
                     self.time[-1].append(int(data[16 + i * 3 + j]))
-        isMulti = not isTime and data.length > 9
+        isMulti = not isTime and len(data) > 9
         self.drop = []
         self.rand = 0
-        if data.length != 6:
+        if len(data) == 6:
             pass
         elif not isMulti:
             self.drop.append(None)
         else:
-            l = (len(data) - 7) / 3
+            l = (len(data) - 7) // 3
             self.drop.append(None)
+            self.rand = int(data[8])
             for i in range(1, l):
-                self.drop.append([])
+                self.drop.append([0, 0, 0])
                 for j in range(3):
-                    self.drop[-1][j] = data[6 + i * 3 + j]
+                    self.drop[-1][j] = int(data[6 + i * 3 + j])
         if len(self.drop):
-            self.drop[0] = [data[5], data[6], data[7]]
+            self.drop[0] = [int(data[5]), int(data[6]), int(data[7])]
 
 class StageMap:
     def __init__(self, file, ID, cast=-1):
+        opened_fds.append(self)
         self.name = ''
         self.id = ID
-        self.materialDrop = []
-        self.multiplier = []
+        self.mD = [] # materialDrop
+        self.mP = [] # multiplier
         self.list = {}
         self.cast = cast
         self.file = readCSV(file)
@@ -179,10 +197,10 @@ class StageMap:
             self.rand = int(line[1])
             self.time = int(line[2])
             self.lim = int(line[3])
-        self.waitTime = 0
-        self.clearLimit = 0
-        self.resetMode = 0
-        self.hiddenUponClear = False
+        self.wT = 0 # waitTime
+        self.cL = 0 # clearLimit
+        self.rM = 0 # resetMode
+        #self.hiddenUponClear = False 
         self.starMask = 0
         self.stars = []
         next(self.file)
@@ -192,21 +210,24 @@ class StageMap:
         for k, v in vars(self).items():
             if k not in ('id', 'file', 'list'):
                 x[k] = v
-        json.dump(x, f)
+        json.dump(x, f, separators=(',', ':'), ensure_ascii=False)
 
     def __repr__(self):
         return '%s:<%d stages>' % (self.name, len(self.list))
 
     def getData(self, stage):
-        stage.setInfo(next(self.file))
+        try:
+            stage.setInfo(next(self.file))
+        except StopIteration:
+            pass
 
     def setDrop(self, line):
         for i in range(13, len(line)):
-            self.materialDrop.append(int(line[i]))
+            self.mD.append(int(line[i]))
         for i in range(1, 5):
-            self.multiplier.append(float(line[i]))
+            self.mP.append(float(line[i]))
         for idx, stage in self.list.items():
-            stage.maxMaterial = int(line[5 + idx])
+            stage.mM = int(line[5 + idx])
 
 class DefMapColc:
     def __init__(self, ID = None, stages = None, maps = None):
@@ -285,7 +306,7 @@ class DefMapColc:
                 with getFile(path) as vf:
                     m = self.maps[id0 - 1]
                     m.list[id1] = Stage(id1, m, vf, 1)
-            
+
             for vf in os.listdir('./org/stage/CH/stageSpace/'):
                 with getFile('./org/stage/CH/stageSpace/' + vf) as f:
                     if len(vf) > 20:
@@ -301,12 +322,11 @@ class DefMapColc:
 
             for vf in os.listdir('./org/stage/CH/stage/'):
                 ms = re.findall(pattern, vf)
-                if len(ms) == 2:
+                if len(ms):
                     id0 = int(ms[0])
-                    id1 = int(ms[1])
                     m = self.maps[9]
                     with getFile('./org/stage/CH/stage/' + vf) as f:
-                        m.list[id1] = Stage(id1, m, f, 2)
+                        m.list[id0] = Stage(id0, m, f, 2)
             self.maps[9].stars = [100, 150, 400]
             for vf in os.listdir('./org/stage/DM/StageDM/'):
                 ms = re.findall(pattern, vf)
@@ -316,16 +336,13 @@ class DefMapColc:
                     m = self.maps[14]
                     with getFile('./org/stage/DM/StageDM/' + vf) as f:
                         m.list[id1] = Stage(id1, m, f, 0)
-            for f in files:
-                f.close()
             return
         self.name = ''
         self.id = ID
         MapColcs[ID] = self
         for m in maps:
             _id = int(m[1][-7:-4:])
-            with getFile('/'.join(m)) as f:
-                self.maps[_id] = StageMap(f, _id)
+            self.maps[_id] = StageMap(getFile('/'.join(m)), _id)
         for s in stages:
             ms = re.findall(pattern, s[1])
             if len(ms) != 2:
@@ -339,7 +356,7 @@ class DefMapColc:
         for k, v in vars(self).items():
             if k != 'id' and k != 'maps':
                 x[k] = v
-        json.dump(x, f)
+        json.dump(x, f, separators=(',', ':'), ensure_ascii=False)
 
     def __repr__(self):
         L = []
@@ -358,26 +375,29 @@ class DefMapColc:
 
     @staticmethod
     def read():
-        map_option = readCSV('./org/data/Map_option.csv') # 
-        ex_lottery = readCSV('./org/data/EX_lottery.csv') #
-        ex_group = readCSV('./org/data/EX_group.csv') # 
-        drop_item = readCSV('./org/data/DropItem.csv') # drop items(rewards)
-        lock_skip = readCSV('./org/data/LockSkipData.csv') # can't use gold CP
-        
         for fi in os.listdir('./org/stage'):
-            if fi in ("CH", "D", "DM") or fi == "N":
+            if fi in ("CH", "D", "DM"):
                 continue
             _list = os.listdir('./org/stage/' + fi)
             _list.sort(key=lambda x: 'MSD' in x, reverse=True)
             _map = _list[0]
             stage = []
             for i in range(1, len(_list)):
-                if "stageRN-1" in _list[i]:
+                if "stageRN-1" in _list[i] and fi == "N":
                     continue
                 stage.extend(map(lambda x: ('./org/stage/' + fi + '/' + _list[i] + '/', x), os.listdir('./org/stage/' + fi + '/' + _list[i])))
             DefMapColc(idmap[fi], stage, map(lambda x: ('./org/stage/' + fi + '/' + _map + '/', x), os.listdir('./org/stage/' + fi + '/' + _map)))
+            for fd in opened_fds:
+                fd.file.close()
+            opened_fds.clear()
         DefMapColc()
-
+        for fd in opened_fds:
+            fd.file.close()
+        opened_fds.clear()
+        map_option = readCSV('./org/data/Map_option.csv')
+        ex_lottery = readCSV('./org/data/EX_lottery.csv')
+        ex_group = readCSV('./org/data/EX_group.csv')
+        drop_item = readCSV('./org/data/DropItem.csv')
         next(map_option)
         for line in map_option:
             strs = line
@@ -387,17 +407,17 @@ class DefMapColc:
             for i in range(stars_len):
                 sm.stars.append(int(strs[2 + i]))
             sm.starMask = int(strs[12])
-            sm.resetMode = int(strs[13])
-            sm.clearLimit = int(strs[8])
-            sm.hiddenUponClear = strs[13] != '0'
-            sm.waitTime = int(strs[10])
+            sm.rM = int(strs[7])
+            sm.cL = int(strs[8])
+            #sm.hiddenUponClear = strs[13] != '0'
+            sm.wT = int(strs[10])
         exLottery = []
         for line in ex_lottery:
             if len(line) >= 2:
-                m = DefMapColc.getMap(line[0])
-                if not m: continue
-                s = m.list[int(line[1])]
-                exLottery.append(s)
+                #m = DefMapColc.getMap(line[0])
+                #if not m: continue
+                #s = m.list[int(line[1])]
+                exLottery.append(line[0] + '/' + line[1])
         for line in ex_group:
             maxPercentage = int(line[0])
             m = DefMapColc.getMap(line[1])
@@ -422,6 +442,8 @@ class DefMapColc:
             maxPercentage = int(line[0])
             for i in range(exLength):
                 exChance[i] /= maxPercentage / 100;
+            s.exS = exStage
+            s.exC = exChance
         next(drop_item)
         for line in drop_item:
             if len(line) != 22 and len(line) != 30:
@@ -429,8 +451,15 @@ class DefMapColc:
             m = DefMapColc.getMap(line[0])
             if m:
                 m.setDrop(line)
-
-DefMapColc.read()
+        with open('./org/data/LockSkipData.csv') as f:
+            for line in f:
+                ids = re.findall(pattern, line)
+                if len(ids) >= 2:
+                    if ids[0] == '0':
+                        MapColcs[int(ids[1]) // 1000].gc = 0
+                    else:
+                        m = DefMapColc.getMap(ids[1])
+                        m.gc = 0
 
 def applyNames(file, lang):
     for line in file:
@@ -457,10 +486,19 @@ def applyNames(file, lang):
             if st:
                 setattr(st, lang, name)
 
+print("2: Reading stage info")
+
+DefMapColc.read()
+
+print("3: Reading language files")
+
 with getFile('./zhStageName.txt') as zh:
     applyNames(zh, 'name')
 with getFile('./jpStageName.txt') as jp:
     applyNames(jp, 'jpname')
+MapColcs[3].name = '主要大章節'
+MapColcs[3].jpname = ''
+print("Writting to ./stages")
 
 try:
     os.mkdir('./stages')
@@ -486,5 +524,7 @@ for k1, v1 in MapColcs.items():
         for k3, v3 in v2.list.items():
             with open(D + '/' + str(k3), 'w') as f:
                 v3.toJSON(f)
+
+print("5: Zipping ./stages to stages.zip")
 
 os.system('zip stages stages -r > /dev/null')
