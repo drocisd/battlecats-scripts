@@ -1,3 +1,5 @@
+import sys
+
 def imgcut(filename = './org/page/img015.imgcut'):
     lines = open(filename).readlines()[2::]
     name = lines[0]
@@ -7,8 +9,6 @@ def imgcut(filename = './org/page/img015.imgcut'):
         x = lines[i + 2].strip().split(',')
         cuts.append([int(x[k]) for k in range(4)] + [x[4] if len(x) > 4 else ''])
     return cuts
-
-import sys
 
 counter = 0
 

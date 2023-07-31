@@ -1,7 +1,7 @@
 RWNAME = {}
 RWSTNAME = {}
 RWSVNAME = {}
-for line in open('RewardName.txt'):
+for line in open('assets/lang/zh/RewardName.txt'):
 	s = line.rstrip().split('\t')
 	if len(s) <= 1: continue
 	name = s[1].rstrip()
@@ -19,7 +19,7 @@ def dump(obj, f):
 	f.write(','.join('%s:"%s"' % (a, b) for a, b in obj.items()))
 	f.write('}')
 
-with open('RewardName.js', 'w') as f:
+with open('out/RewardName.js', 'w') as f:
 	f.write('const RWNAME=')
 	dump(RWNAME, f)
 	f.write(';\nconst RWSTNAME=')

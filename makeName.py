@@ -9,7 +9,7 @@ l = []
 f = open(argv[1])
 for line in f:
     y = line.replace('\n', '').replace('\r', '').split('\t')
-    l.append(dumps(y[1]))
+    l.append(dumps(y[1], separators=(',', ':'), ensure_ascii=False))
 
 print('[%s]' % ','.join(l))
 

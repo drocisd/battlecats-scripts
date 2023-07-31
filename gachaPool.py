@@ -86,7 +86,7 @@ def gen(i, pool):
 unit_buy = tuple(map(lambda x: int(x.split(',')[-2]), open('./org/data/unitbuy.csv').read().rstrip().split('\n')))
 content = ''
 for pool in pools:
-  fn = './gacha/' + pool[2].replace(' ', '_').replace(':', '_').replace('\'', '_').replace('/', '_') + '.html'
+  fn = 'out/gacha/' + pool[2].replace(' ', '_').replace(':', '_').replace('\'', '_').replace('/', '_') + '.html'
   names = '%s/%s/%s' % (pool[0], pool[1], pool[2])
   content += '<h2><a href="%s">%s</a></h2>' % (fn, names)
   content += '<a href="%s"><img src="%s"></a>' % (fn, pool[-2])
@@ -121,7 +121,7 @@ p { font-size: larger;margin-block-start: 0;margin-block-end: 0; }
 </html>
 ''' % (names, names, pool[-2], c))
 
-with open("gachas.html", 'w') as f:
+with open("out/gachas.html", 'w') as f:
   f.write('''\
 <!DOCTYPE html>
 <html>

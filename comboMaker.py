@@ -2,7 +2,7 @@ combos = []
 comboNames = {}
 
 def readNames():
-    for line in open("./ComboName.txt"):
+    for line in open("./assets/lang/zh/ComboName.txt"):
         x = line.replace('\n', '').replace('\r', '').split('\t')
         if len(x) != 2: continue
         comboNames[int(x[0])] = x[1]

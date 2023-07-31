@@ -492,9 +492,9 @@ DefMapColc.read()
 
 print("3: Reading language files")
 
-with getFile('./zhStageName.txt') as zh:
+with getFile('assets/lang/zh/StageName.txt') as zh:
     applyNames(zh, 'name')
-with getFile('./jpStageName.txt') as jp:
+with getFile('assets/lang/jp/StageName.txt') as jp:
     applyNames(jp, 'jpname')
 MapColcs[3].name = '主要大章節'
 MapColcs[3].jpname = ''
