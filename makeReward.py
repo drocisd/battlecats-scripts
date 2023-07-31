@@ -1,3 +1,4 @@
+#!/usr/bin/python
 RWNAME = {}
 RWSTNAME = {}
 RWSVNAME = {}

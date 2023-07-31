@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import sys
 
 def imgcut(filename = './org/page/img015.imgcut'):

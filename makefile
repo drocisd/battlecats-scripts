@@ -1,23 +1,43 @@
 python=python3
 
-all:
+all: icon anim2 anim1 combo name stage level
+
+pre:
 	mkdir -p out
-	mkdir -p out/lang
+	mkdir -p out/data/lang
 	mkdir -p out/gacha
-	mkdir -p out/lang/zh
-	mkdir -p out/lang/jp
+	mkdir -p out/data/lang/zh
+	mkdir -p out/data/lang/jp
+
+icon: pre
 	$(python) iconMaker.py > out/icons.css
-	$(python) backswingMaker.py > out/anim1
-	$(python) backswingMaker1.py > out/anim2
+
+anim2: pre
+	$(python) backswingMaker.py > out/anim2
+
+anim1: pre
+	$(python) backswingMaker1.py > out/anim1
+
+combo: pre
 	$(python) comboMaker.py > out/combo.js
-	$(python) gachaPool.py out
-	$(python) makeName.py assets/lang/zh/UnitName.txt > out/lang/zh/UnitName.js
-	$(python) makeStage.py assets/lang/jp/UnitName.txt > out/lang/jp/UnitName.js
-	$(python) makeName.py assets/lang/zh/UnitExplanation.txt > out/lang/zh/UnitExplanation.js
-	$(python) makeName.py assets/lang/jp/UnitExplanation.txt > out/lang/jp/UnitExplanation.js
+
+gacha: pre
+	$(python) gachaPool.py
+
+name: pre
+	$(python) makeName.py assets/lang/zh/UnitName.txt > out/data/lang/zh/UnitName.js
+	$(python) makeName.py assets/lang/jp/UnitName.txt > out/data/lang/jp/UnitName.js
+	$(python) makeName.py assets/lang/zh/UnitExplanation.txt > out/data/lang/zh/UnitExplanation.js
+	$(python) makeName.py assets/lang/jp/UnitExplanation.txt > out/data/lang/jp/UnitExplanation.js
+
+stage: pre
 	$(python) makeStage.py
-	mv stages.zip out/stages.zip
 
-level:
-	$(python) levelMaker.py
+level: pre
+	$(python) levelMaker.py > out/unitlevels.js
 
+version: all
+	cp -r --update out ../battlecatsinfo.github.io
+
+clean:
+	rm -r out

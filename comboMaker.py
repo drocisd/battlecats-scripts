@@ -1,3 +1,4 @@
+#!/usr/bin/python
 combos = []
 comboNames = {}
 

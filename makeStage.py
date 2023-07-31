@@ -1,3 +1,4 @@
+#!/usr/bin/python
 import os
 import sys
 import re
@@ -7,11 +8,6 @@ opened_fds = []
 
 _listdir = os.listdir
 os.listdir = lambda x: sorted(_listdir(x))
-
-print('1: Remove old files')
-
-os.system('rm stages.zip')
-os.system('rm -r stages')
 
 def getFile(filename):
     return open(filename, encoding='utf-8-sig')
@@ -486,24 +482,13 @@ def applyNames(file, lang):
             if st:
                 setattr(st, lang, name)
 
-print("2: Reading stage info")
-
 DefMapColc.read()
-
-print("3: Reading language files")
-
 with getFile('assets/lang/zh/StageName.txt') as zh:
     applyNames(zh, 'name')
 with getFile('assets/lang/jp/StageName.txt') as jp:
     applyNames(jp, 'jpname')
 MapColcs[3].name = '主要大章節'
 MapColcs[3].jpname = ''
-print("Writting to ./stages")
-
-try:
-    os.mkdir('./stages')
-except FileExistsError:
-    pass
 
 for k1, v1 in MapColcs.items():
     d = './stages/' + str(k1)
@@ -525,6 +510,6 @@ for k1, v1 in MapColcs.items():
             with open(D + '/' + str(k3), 'w') as f:
                 v3.toJSON(f)
 
-print("5: Zipping ./stages to stages.zip")
+os.system('zip out/stages stages -r > /dev/null')
+os.system('rm -r stages')
 
-os.system('zip stages stages -r > /dev/null')

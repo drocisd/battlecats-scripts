@@ -1,3 +1,4 @@
+#!/usr/bin/python
 csvData = (line for line in filter(len, open('./org/data/unitlevel.csv').read().replace('\r', '').replace(' ', '').split('\n')))
 
 groups = {}
@@ -16,12 +17,8 @@ for it in csvData:
     curMap.append(str(x[1]))
     i += 1
 
-print('\n\n'.join(map(lambda x: '"%s" ->\n    %s' % (x[0], x[1][0]), groups.items())))
-
 print('const curveMap=[%s];' % ','.join(curMap))
 
 for k, v in groups.items():
     print('const curveData%i=[%s];' % (v[1], k))
-
-
 
