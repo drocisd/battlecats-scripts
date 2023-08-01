@@ -121,10 +121,10 @@ p { font-size: larger;margin-block-start: 0;margin-block-end: 0; }
 </style>
 <body>
 <div class="topnav">
-  <a class="active" href="/">主頁</a>
+  <a href="/">主頁</a>
   <a href="/search.html">貓咪</a>
   <a href="/esearch.html">敵人</a>
-  <a href="/gachas.html">轉蛋</a>
+  <a class="active" href="/gachas.html">轉蛋</a>
   <a href="/stage.html">關卡</a>
   <a href="/music.html">音效</a>
 </div>
@@ -154,10 +154,10 @@ img { display: block;margin: 0 auto; }
 </style>
 <body>
 <div class="topnav">
-  <a class="active" href="/">主頁</a>
+  <a href="/">主頁</a>
   <a href="/search.html">貓咪</a>
   <a href="/esearch.html">敵人</a>
-  <a href="/gachas.html">轉蛋</a>
+  <a class="active" href="/gachas.html">轉蛋</a>
   <a href="/stage.html">關卡</a>
   <a href="/music.html">音效</a>
 </div>
