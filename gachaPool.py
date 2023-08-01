@@ -109,13 +109,25 @@ for pool in pools:
 </head>
 <style>
 html, body { width: 100%%;margin: 0 auto;padding: 0;background-color: aliceblue;text-align: center; }
-table { margin: 0 auto;border-collapse: collapse;margin-top: 50px; }
-td { width: 300px;border: #cfcfcf 2px solid; }
+table { margin: 0 auto;border-collapse: collapse;margin-top: 50px;box-shadow: 0 0 20px rgba(0, 0, 0, 0.15); }
+td { width: 300px;border: #cfcfcf 4px solid; }
 p { margin-block-start: 0px;margin-block-end: 0px; }
 a { display: block; }
 p { font-size: larger;margin-block-start: 0;margin-block-end: 0; }
+.topnav { overflow: hidden; background-color: #333; }
+.topnav a { float: left; color: #f2f2f2; text-align: center; padding: 14px 16px; text-decoration: none; font-size: 17px; }
+.topnav a:hover { background-color: #ddd; color: black; }
+.topnav a.active { background-color: #f2bb00; color: white; }
 </style>
 <body>
+<div class="topnav">
+  <a class="active" href="/">主頁</a>
+  <a href="/search.html">貓咪</a>
+  <a href="/esearch.html">敵人</a>
+  <a href="/gachas.html">轉蛋</a>
+  <a href="/stage.html">關卡</a>
+  <a href="/music.html">音效</a>
+</div>
 <h1>%s</h1>
 <img style="display: block;margin: 0 auto;" src="%s">
 <table><tbody>%s</tbody></table>
@@ -135,8 +147,20 @@ with open("out/gachas.html", 'w') as f:
 html, body { width: 100%;margin: 0;padding: 0;background-color: aliceblue; }
 a { text-align: center;text-decoration: none;display: block;width: 100%; }
 img { display: block;margin: 0 auto; }
+.topnav { overflow: hidden; background-color: #333; }
+.topnav a { float: left; color: #f2f2f2; text-align: center; padding: 14px 16px; text-decoration: none; font-size: 17px; }
+.topnav a:hover { background-color: #ddd; color: black; }
+.topnav a.active { background-color: #f2bb00; color: white; }
 </style>
 <body>
+<div class="topnav">
+  <a class="active" href="/">主頁</a>
+  <a href="/search.html">貓咪</a>
+  <a href="/esearch.html">敵人</a>
+  <a href="/gachas.html">轉蛋</a>
+  <a href="/stage.html">關卡</a>
+  <a href="/music.html">音效</a>
+</div>
 <div style="margin: 0 auto;text-align: center;width: 100%;">''' + content + '''</div>
 </body>
 </html>
