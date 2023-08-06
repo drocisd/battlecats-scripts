@@ -111,10 +111,10 @@ class Stage:
                 break
             data = [0] * 15
             for i in range(intl):
-                if i >= len(line):
-                    data[i] = (100)
-                else:
+                if i < len(line):
                     data[i] = int(line[i])
+                elif i == 9:
+                    data[i] = 100;
             data[0] -= 2
             data[2] *= 2
             data[3] *= 2
@@ -128,10 +128,10 @@ class Stage:
                     data[13] = data[9]
             else:
                 data[13] = data[9]
-            if len(line) > 12 and line[12].isdigit() and int(line[12] == 1):
+            if len(line) > 12 and line[12] == '1':
                 data[2] = -data[2]
             if len(line) > 13 and line[13].isdigit():
-                data[13] = int(line[13])
+                data[14] = int(line[13])
             if data[0] == isBase:
                 data[5] = 0
             ll.append(data)
