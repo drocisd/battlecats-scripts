@@ -206,6 +206,12 @@ class StageMap:
             self.rand = int(line[1])
             self.time = int(line[2])
             self.lim = int(line[3])
+            if len(line) > 4 and line[4] != '-1':
+                self.mapcond = int(line[4])
+                if len(line) > 5 and line[5] != '-1':
+                    self.stagecond = int(line[5])
+                    if len(line) > 6 and line[6] != '-1':
+                        self.userrank = int(line[6])
         self.wT = 0 # waitTime
         self.cL = 0 # clearLimit
         self.rM = 0 # resetMode
