@@ -202,17 +202,15 @@ class StageMap:
         self.cast = cast
         self.file = readCSV(file)
         line = next(self.file)
-        if len(line) > 3:
+        if len(line) > 1:
             self.rand = int(line[1])
-            self.time = int(line[2])
-            self.lim = int(line[3])
-            if len(line) > 4 and line[4] != '-1':
-                self.mapcond = int(line[4])
-                if len(line) > 5 and line[5] != '-1':
-                    self.stagecond = int(line[5])
-                    if len(line) > 6 and line[6] != '-1':
-                        self.userrank = int(line[6])
-        self.wT = 0 # waitTime
+            if len(line) > 3:
+                if line[3] != '-1': self.mapcond = int(line[3])
+                if len(line) > 4:
+                    if line[4] != '-1': self.stagecond = int(line[4])
+                    if len(line) > 5:
+                        if line[5] != '-1':
+                            self.userrank = int(line[5])
         self.cL = 0 # clearLimit
         self.rM = 0 # resetMode
         #self.hiddenUponClear = False 
@@ -424,15 +422,17 @@ class DefMapColc:
             sm.starMask = int(strs[12])
             sm.rM = int(strs[7])
             sm.cL = int(strs[8])
-            #sm.hiddenUponClear = strs[13] != '0'
-            sm.wT = int(strs[10])
+            if strs[13] != '0':
+                sm.hC = 1
+            if strs[10] != '0':
+                sm.wT = int(strs[10])
         exLottery = []
         for line in ex_lottery:
             if len(line) >= 2:
-                #m = DefMapColc.getMap(line[0])
-                #if not m: continue
-                #s = m.list[int(line[1])]
-                exLottery.append(line[0] + '/' + line[1])
+                m = DefMapColc.getMap(line[0])
+                if not m: continue
+                s = m.list[int(line[1])]
+                exLottery.append(int(line[0]) * 100 + int(line[1]))
         for line in ex_group:
             maxPercentage = int(line[0])
             m = DefMapColc.getMap(line[1])
@@ -449,14 +449,15 @@ class DefMapColc:
             exStage = []
             exChance = []
             for i in range(exLength):
-                _id = int(line[i+i+3])
-                exStage.append(exLottery[_id])
-                c = maxPercentage * (int(line[i+i+4])/100);
+                idx = i + i + 3
+                eid = int(line[idx])
+                exStage.append(exLottery[eid])
+                c = maxPercentage * int(line[idx + 1]) / 100
                 exChance.append(c)
                 maxPercentage -= c
             maxPercentage = int(line[0])
             for i in range(exLength):
-                exChance[i] /= maxPercentage / 100;
+                exChance[i] /= maxPercentage / 100
             s.exS = exStage
             s.exC = exChance
         next(drop_item)
