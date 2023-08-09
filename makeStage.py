@@ -8,6 +8,17 @@ opened_fds = []
 
 _listdir = os.listdir
 os.listdir = lambda x: sorted(_listdir(x))
+tfdropids = {}
+def readUnitBuy():
+    with open('org/data/unitbuy.csv') as f:
+        i = 0
+        for line in f:
+            x = int(line.split(',')[23])
+            if x:
+                tfdropids[x] = i
+            i += 1
+
+readUnitBuy()
 
 def getFile(filename):
     return open(filename, encoding='utf-8-sig')
@@ -59,8 +70,10 @@ pattern = re.compile('\\d+')
 CH_CASTLES = [45, 44, 43, 42, 41, 40, 39, 38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28,
             27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0, 46,
             47, 45, 47, 47, 45, 45]
+
 class Stage:
     def __init__(self, id, stm, file, type):
+        self.file = file
         stm.getData(self)
         self.name = ''
         f = readCSV(file)
@@ -98,10 +111,10 @@ class Stage:
                 break
             data = [0] * 15
             for i in range(intl):
-                if i >= len(line):
-                    data[i] = (100)
-                else:
+                if i < len(line):
                     data[i] = int(line[i])
+                elif i == 9:
+                    data[i] = 100;
             data[0] -= 2
             data[2] *= 2
             data[3] *= 2
@@ -115,10 +128,10 @@ class Stage:
                     data[13] = data[9]
             else:
                 data[13] = data[9]
-            if len(line) > 12 and line[12].isdigit() and int(line[12] == 1):
+            if len(line) > 12 and line[12] == '1':
                 data[2] = -data[2]
             if len(line) > 13 and line[13].isdigit():
-                data[13] = int(line[13])
+                data[14] = int(line[13])
             if data[0] == isBase:
                 data[5] = 0
             ll.append(data)
@@ -130,7 +143,7 @@ class Stage:
     def toJSON(self, f):
         x = {}
         for k, v in vars(self).items():
-            if k != 'id':
+            if k != 'id' and k != 'file':
                 x[k] = v
         json.dump(x, f, separators=(',', ':'), ensure_ascii=False)
 
@@ -189,11 +202,15 @@ class StageMap:
         self.cast = cast
         self.file = readCSV(file)
         line = next(self.file)
-        if len(line) > 3:
+        if len(line) > 1:
             self.rand = int(line[1])
-            self.time = int(line[2])
-            self.lim = int(line[3])
-        self.wT = 0 # waitTime
+            if len(line) > 3:
+                if line[3] != '-1': self.mapcond = int(line[3])
+                if len(line) > 4:
+                    if line[4] != '-1': self.stagecond = int(line[4])
+                    if len(line) > 5:
+                        if line[5] != '-1':
+                            self.userrank = int(line[5])
         self.cL = 0 # clearLimit
         self.rM = 0 # resetMode
         #self.hiddenUponClear = False 
@@ -226,7 +243,7 @@ class StageMap:
             stage.mM = int(line[5 + idx])
 
 class DefMapColc:
-    def __init__(self, ID = None, stages = None, maps = None):
+    def __init__(self, ID = None, stages = None, maps = None): 
         self.name = ''
         self.maps = {}
         if ID is None:
@@ -405,15 +422,17 @@ class DefMapColc:
             sm.starMask = int(strs[12])
             sm.rM = int(strs[7])
             sm.cL = int(strs[8])
-            #sm.hiddenUponClear = strs[13] != '0'
-            sm.wT = int(strs[10])
+            if strs[13] != '0':
+                sm.hC = 1
+            if strs[10] != '0':
+                sm.wT = int(strs[10])
         exLottery = []
         for line in ex_lottery:
             if len(line) >= 2:
-                #m = DefMapColc.getMap(line[0])
-                #if not m: continue
-                #s = m.list[int(line[1])]
-                exLottery.append(line[0] + '/' + line[1])
+                m = DefMapColc.getMap(line[0])
+                if not m: continue
+                s = m.list[int(line[1])]
+                exLottery.append(int(line[0]) * 100 + int(line[1]))
         for line in ex_group:
             maxPercentage = int(line[0])
             m = DefMapColc.getMap(line[1])
@@ -430,14 +449,15 @@ class DefMapColc:
             exStage = []
             exChance = []
             for i in range(exLength):
-                _id = int(line[i+i+3])
-                exStage.append(exLottery[_id])
-                c = maxPercentage * (int(line[i+i+4])/100);
+                idx = i + i + 3
+                eid = int(line[idx])
+                exStage.append(exLottery[eid])
+                c = maxPercentage * int(line[idx + 1]) / 100
                 exChance.append(c)
                 maxPercentage -= c
             maxPercentage = int(line[0])
             for i in range(exLength):
-                exChance[i] /= maxPercentage / 100;
+                exChance[i] /= maxPercentage / 100
             s.exS = exStage
             s.exC = exChance
         next(drop_item)
@@ -483,12 +503,78 @@ def applyNames(file, lang):
                 setattr(st, lang, name)
 
 DefMapColc.read()
+
+m_drops = {}
+
+with open('drop_chara.csv') as f:
+    next(f)
+    for line in f:
+        line = line.rstrip().replace('\n', '').split(',')
+        if len(line) < 3: continue
+        m_drops[int(line[0])] = int(line[2]) # Map(Reward ID -> Cat ID)
+
+rwMap = {}
+tfMap = {}
+for i, I in enumerate(sorted(MapColcs.items())):
+    v1 = I[1]
+    for j, J in enumerate(sorted(v1.maps.items())):
+        v2 = J[1]
+        for k, K in enumerate(sorted(v2.list.items())):
+            v3 = K[1]
+            if hasattr(v3, 'drop'):
+                for x in v3.drop:
+                    y = tfdropids.get(x[1])
+                    if y is not None and not tfMap.get(y):
+                        tfMap[y] = [i, j, k]
+                        break
+                for x in v3.drop:
+                    y = m_drops.get(x[1])
+                    if y is not None and not rwMap.get(y):
+                        rwMap[y] = [i, j, k]
+                        break
+
 with getFile('assets/lang/zh/StageName.txt') as zh:
     applyNames(zh, 'name')
 with getFile('assets/lang/jp/StageName.txt') as jp:
     applyNames(jp, 'jpname')
 MapColcs[3].name = '主要大章節'
 MapColcs[3].jpname = ''
+
+class DefLimit:
+    def __init__(self, line):
+        line = [int(l) for l in line]
+        mid = line[0]
+        if mid == 22000:
+            mid = 3015
+        m = DefMapColc.getMap(mid)
+        if not hasattr(m, 'Lim'):
+            m.Lim = []
+        m.Lim.append(line[1::])
+
+char_groups = {}
+
+with open('org/data/Charagroup.csv') as f:
+    next(f)
+    for line in f:
+        strs = line.rstrip().replace('\n', '').split(',')
+        id = int(strs[0])
+        _type = int(strs[2])
+        char_groups[id] = [_type, [int(x) for x in filter(len, strs[3::])]]
+
+with open('org/data/Stage_option.csv') as f:
+    next(f)
+    for line in f:
+        DefLimit(list(filter(len, line.replace('\n', '').rstrip().split(','))))
+
+os.system('mkdir -p stages')
+with open('./stages/group', 'w') as f:
+    json.dump(char_groups, f, separators=(',', ':'), ensure_ascii=False)
+
+with open('./out/rwMap', 'w') as f:
+    json.dump(rwMap, f, separators=(',', ':'), ensure_ascii=False)
+
+with open('./out/tfMap', 'w') as f:
+    json.dump(tfMap, f, separators=(',', ':'), ensure_ascii=False)
 
 for k1, v1 in MapColcs.items():
     d = './stages/' + str(k1)
@@ -512,4 +598,3 @@ for k1, v1 in MapColcs.items():
 
 os.system('zip out/stages stages -r > /dev/null')
 os.system('rm -r stages')
-
